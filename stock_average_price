@@ -1,0 +1,75 @@
+import tushare as ts
+#需要先pip install tushare
+#win下pip语句为 python -m pip install tushare
+import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
+import pandas as pd
+
+# 初始化 tushare token
+ts.set_token('#####################################')
+
+# 获取股票历史数据,平安银行为例
+df = ts.get_hist_data('000001', start='2010-01-01', end='2022-12-31')
+#获取分钟数据
+#df = ts.get_hist_data('600276', start='2022-01-01 09:00:00', end='2022-01-03 15:00:00')
+print(df)
+df['date'] = pd.to_datetime(df.index)
+df = df.set_index('date')
+# 将tushare的文件保存为.csv
+#df.to_csv('600276.csv')
+
+# 取出每分钟的收盘价
+close_prices = df['close'].resample('1min').last()
+
+#按分钟采样
+#df = df.resample('1min').last()
+
+#计算平均股价和市盈率
+avg_price = df['close'].mean()
+#pe_ration = df['pe']
+
+# 绘制股价、市盈率图表和初始化状态
+fig, ax1 = plt.subplots()
+ax1.plot(df.index, df['close'], color='blue')
+ax1.set_ylabel('Price', color='blue')
+ax1.tick_params(axis='y', labelcolor='blue')
+#使用twinx()函数在一张图标上展示不同信息，这段代码中只展示股价信息
+#ax2 = ax1.twinx()
+#ax2.plot(df.index, pe_ratio, color='red')
+#ax2.set_ylabel('PE Ratio', color='red')
+#ax2.tick_params(axis='y', labelcolor='red')
+avg_price_line, = ax1.plot([], [], color='green', linestyle='--')
+avg_price_text = ax1.text(df.index[0], avg_price, f'Average price: {avg_price:.2f}', color='green')
+
+# 标记最低点和最高点
+low_price = df['close'].min()
+high_price = df['close'].max()
+low_date = df['close'].idxmin()
+high_date = df['close'].idxmax()
+ax1.annotate(f'Lowest price: {low_price:.2f}', xy=(low_date, low_price), xytext=(low_date, low_price*0.9),
+            arrowprops=dict(facecolor='red', shrink=0.05))
+ax1.annotate(f'Highest price: {high_price:.2f}', xy=(high_date, high_price), xytext=(high_date, high_price*1.1),
+            arrowprops=dict(facecolor='green', shrink=0.05))
+
+#绘制平均股价
+#这段代码中，将平均股价固定在图表中
+#ax1.axhline(avg_price, color='green', linestyle='--')
+#ax1.text(df.index[0], avg_price, f'Average price: {avg_price:.2f}', color='green')
+
+# 连接最高点和最低点
+ax1.plot([low_date, high_date], [low_price, high_price], 'k--')
+
+# 更新函数
+def update(frame):
+    # 计算新的平均股价
+    avg_price = df['close'][-frame:].mean()
+    # 更新平均股价的位置和文本
+    avg_price_line.set_data(df.index[-frame:], [avg_price] * frame)
+    avg_price_text.set_position((df.index[-frame], avg_price))
+    avg_price_text.set_text(f'Average price: {avg_price:.2f}')
+
+# 创建动画
+ani = FuncAnimation(fig, update, frames=len(df), interval=50)
+
+# 显示图表和动画
+plt.show()
